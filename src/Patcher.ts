@@ -11,15 +11,12 @@ import { InsteadFn, OnPatchError, PatchFn } from "./types";
 const patchInfoSym = Symbol.for("jsposed.patchInfo");
 
 function getMethod(obj: any, methodName: String) {
-    if (obj == null)
-        throw new Error("obj may not be null or undefined");
+    if (obj == null) throw new Error("obj may not be null or undefined");
 
     const method = obj[methodName as any];
-    if (method == null)
-        throw new Error("No such method: " + methodName);
+    if (method == null) throw new Error("No such method: " + methodName);
 
-    if (typeof method !== "function")
-        throw new Error(methodName + " is not a function");
+    if (typeof method !== "function") throw new Error(methodName + " is not a function");
 
     return method;
 }
@@ -37,8 +34,7 @@ export class Patcher {
         public readonly name = "JsPosed",
         handleError?: OnPatchError
     ) {
-        if (handleError)
-            this.handleError = handleError;
+        if (handleError) this.handleError = handleError;
     }
 
     public handleError<T>(kind: "before" | "after", info: PatchInfo<T>, err: any, patch: Patch<T>) {
@@ -60,8 +56,7 @@ export class Patcher {
      * @returns Result of the method
      */
     public callOriginal<T>(method: (...args: any[]) => T, thisObject: any, ...args: any[]): T {
-        if (typeof method !== "function")
-            throw new Error("method must be a function");
+        if (typeof method !== "function") throw new Error("method must be a function");
 
         const actual = (method[patchInfoSym as keyof typeof method] as PatchInfo<any>)?.original ?? method;
         return actual.call(thisObject, ...args);
@@ -80,7 +75,17 @@ export class Patcher {
         if (!patchInfo) {
             patchInfo = new PatchInfo(this, obj, methodName, method);
 
-            const replacement = (obj as any)[methodName] = patchInfo.makeReplacementFunc();
+            let replacement = patchInfo.makeReplacementFunc();
+            Object.defineProperty(obj, methodName, {
+                get() {
+                    return replacement;
+                },
+                set(v) {
+                    return (patchInfo.original = v);
+                },
+            });
+            Object.defineProperties(replacement, Object.getOwnPropertyDescriptors(method));
+
             Object.defineProperties(replacement, Object.getOwnPropertyDescriptors(method));
             Object.defineProperty(replacement, patchInfoSym, {
                 value: patchInfo,
@@ -157,5 +162,46 @@ export class Patcher {
      */
     public after<T>(obj: any, methodName: string, after: PatchFn<T>, priority = PatchPriority.DEFAULT): Unpatch<T> {
         return this.patch(obj, methodName, new Patch({ after, priority }));
+    }
+
+    /**
+     * Add a patch that will run before the original method is declared
+     * @param obj Object holding the method
+     * @param methodName Method name
+     * @param ahead Patch
+     * @param priority Patch priority
+     * @returns
+     */
+    public ahead<T>(obj: T, methodName: string, ahead: PatchFn<T>, priority = PatchPriority.DEFAULT): Unpatch<T> {
+        let original: Function;
+
+        const patcher = this;
+        let patch: Unpatch<T>;
+        Object.defineProperty(obj, methodName, {
+            get() {
+                return original;
+            },
+            set(v) {
+                Object.defineProperty(obj, methodName, {
+                    ...Object.getOwnPropertyDescriptors(v),
+                    value: v,
+                    configurable: true,
+                    writable: true,
+                });
+                patch = patcher.before(obj, methodName, ahead, priority);
+            },
+            configurable: true,
+        });
+
+        return {
+            unpatch: () => {
+                Object.defineProperty(obj, methodName, {
+                    value: original,
+                    writable: true,
+                    configurable: true,
+                });
+                patch && patch.unpatch();
+            },
+        } as unknown as Unpatch<T>;
     }
 }

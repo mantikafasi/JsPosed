@@ -16,7 +16,7 @@ export class PatchInfo<T> {
         public readonly patcher: Patcher,
         public readonly targetObject: T,
         public readonly methodName: string,
-        public readonly original: Func
+        public original: Func
     ) { }
 
     public get patchCount() {
