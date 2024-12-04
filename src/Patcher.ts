@@ -191,11 +191,6 @@ export class Patcher {
 
         return {
             unpatch: () => {
-                Object.defineProperty(obj, methodName, {
-                    value: original,
-                    writable: true,
-                    configurable: true,
-                });
                 patch && patch.unpatch();
             },
         } as unknown as Unpatch<T>;
