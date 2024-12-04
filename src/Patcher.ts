@@ -113,7 +113,10 @@ export class Patcher {
         if (patchInfo) {
             patchInfo.removePatch(patch);
             if (patchInfo.patchCount === 0) {
-                (obj as any)[methodName] = patchInfo.original;
+                Object.defineProperty(obj,methodName, {
+                    value: patchInfo.original,
+                    ...Object.getOwnPropertyDescriptors(patchInfo.original)
+                });
             }
         }
     }
