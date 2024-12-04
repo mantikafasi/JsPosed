@@ -30,10 +30,7 @@ export class Patcher {
      *          - the caught error
      *          - the patch callback that threw this error
      */
-    public constructor(
-        public readonly name = "JsPosed",
-        handleError?: OnPatchError
-    ) {
+    public constructor(public readonly name = "JsPosed", handleError?: OnPatchError) {
         if (handleError) this.handleError = handleError;
     }
 
@@ -91,7 +88,7 @@ export class Patcher {
                 value: patchInfo,
                 enumerable: false,
                 writable: true,
-                configurable: true
+                configurable: true,
             });
         }
 
@@ -113,9 +110,9 @@ export class Patcher {
         if (patchInfo) {
             patchInfo.removePatch(patch);
             if (patchInfo.patchCount === 0) {
-                Object.defineProperty(obj,methodName, {
+                Object.defineProperty(obj, methodName, {
                     value: patchInfo.original,
-                    ...Object.getOwnPropertyDescriptors(patchInfo.original)
+                    ...Object.getOwnPropertyDescriptors(patchInfo.original),
                 });
             }
         }
@@ -176,14 +173,10 @@ export class Patcher {
      * @returns
      */
     public ahead<T>(obj: T, methodName: string, ahead: PatchFn<T>, priority = PatchPriority.DEFAULT): Unpatch<T> {
-        let original: Function;
-
         const patcher = this;
         let patch: Unpatch<T>;
         Object.defineProperty(obj, methodName, {
-            get() {
-                return original;
-            },
+            get() {},
             set(v) {
                 Object.defineProperty(obj, methodName, {
                     ...Object.getOwnPropertyDescriptors(v),
